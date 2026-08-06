@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+* **Breaking (text output only)** - `Dnsruby::IPv6#to_s` and `#inspect` now emit the RFC 5952 canonical form: lowercase hex, no leading zeros, and `::` for the longest run of all-zero fields (never a single field)
+  * Affects `AAAA`, `IPSECKEY` and `APL` records and log output; code that string-compares the old uppercase form needs updating. Parsing and wire format are unchanged
+  * `::ffff:0:0/96` now uses the mixed notation (`::ffff:192.0.2.1`); the deprecated IPv4-compatible `::/96` range keeps the hexadecimal form, unlike `IPAddr#to_s` and `inet_ntop`
 * Fix `Dnsruby::ZoneReader` splitting an unquoted character-string in two at a backslash-escaped quote - RFC 1035 Section 5.1 makes `\"` a literal quote, so `TXT \"escaped` is one string and was previously read as `"", "\"escaped"`
 
 ## v1.74.0

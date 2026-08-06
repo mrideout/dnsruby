@@ -26,6 +26,7 @@ TESTS = %w(
     hash
     header
     ipseckey
+    ipv6
     message
     misc
     name
