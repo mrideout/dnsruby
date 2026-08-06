@@ -71,5 +71,45 @@ ZONEDATA
     assert_equal(false, stringio.closed?)
     stringio.close
   end
+
+  # The reader reattaches a quoted tail for every type, so a parenthesis right
+  # before a quote must separate it too: the parenthesis is stripped from the
+  # line before the quoted text goes back on.
+  PAREN_QUOTE_ZONE = <<~ZONEDATA
+    $TTL 3600
+    caa    IN CAA   0 issue("ca.example.net")
+    hinfo  IN HINFO ("cpu" "os")
+    txt    IN TXT   ("abc" "def")
+  ZONEDATA
+
+  def test_zone_parenthesis_before_quote
+    reader = Dnsruby::ZoneReader.new('example.com.')
+    caa, hinfo, txt = reader.process_file(StringIO.new(PAREN_QUOTE_ZONE))
+
+    assert_equal('issue', caa.property_tag)
+    assert_equal('ca.example.net', caa.property_value)
+
+    assert_equal('cpu', hinfo.cpu)
+    assert_equal('os', hinfo.os)
+
+    assert_equal(['abc', 'def'], txt.strings)
+  end
+
+  # A backslash escaping the quote abuts it too. RFC 1035 sec 5.1 makes \" a
+  # literal quote within an unquoted character-string, so each of these is one
+  # string, not two.
+  ESCAPED_QUOTE_ZONE = <<~'ZONEDATA'
+    $TTL 3600
+    lead   IN TXT   \"escaped
+    mid    IN TXT   abc\"def
+  ZONEDATA
+
+  def test_zone_escaped_quote_not_separated
+    reader = Dnsruby::ZoneReader.new('example.com.')
+    lead, mid = reader.process_file(StringIO.new(ESCAPED_QUOTE_ZONE))
+
+    assert_equal(['"escaped'], lead.strings)
+    assert_equal(['abc"def'], mid.strings)
+  end
 end
 

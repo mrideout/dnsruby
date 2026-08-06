@@ -215,9 +215,15 @@ module Dnsruby
 
       #  If we have text in the record, then ignore that in the parsing, and stick it on again at the end
       stored_line = "";
+      #  TXT quotes a whole token, but SVCB and HTTPS quote mid-token
+      #  (alpn="h2,h3"), so remember which to put the text back as it came.
+      #  A parenthesis separates too, and the strip below may remove it first.
+      stored_line_was_separate = true
       if (line.index('"') != nil)
-          stored_line = line[line.index('"'), line.length];
-          line = line [0, line.index('"')]
+          quote_index = line.index('"')
+          stored_line_was_separate = (quote_index == 0) || !(/[\s()]/ =~ line[quote_index - 1]).nil?
+          stored_line = line[quote_index, line.length];
+          line = line [0, quote_index]
       end
       if ((line[0,1] == " ") || (line[0,1] == "\t"))
         line = @last_name + " " + line
@@ -343,7 +349,8 @@ module Dnsruby
       line = line.strip
 
       if (stored_line && stored_line != "")
-        line += " " + stored_line.strip
+        line += " " if stored_line_was_separate
+        line += stored_line.strip
       end
 
       #  We need to fix up any non-absolute names in the RR

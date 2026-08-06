@@ -1,5 +1,9 @@
 # Release Notes
 
+## Unreleased
+
+* Fix `Dnsruby::ZoneReader` splitting an unquoted character-string in two at a backslash-escaped quote - RFC 1035 Section 5.1 makes `\"` a literal quote, so `TXT \"escaped` is one string and was previously read as `"", "\"escaped"`
+
 ## v1.74.0
 
 * Resolve all configured nameservers in parallel
