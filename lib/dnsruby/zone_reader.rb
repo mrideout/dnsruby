@@ -394,6 +394,17 @@ module Dnsruby
         end
         line = parsed_rr.to_s
       end
+      #  SVCB and HTTPS carry their TargetName in the middle of the RDATA
+      #  (before the SvcParams), so the trailing-name logic above cannot reach
+      #  it. Parse the record and qualify a relative TargetName against the
+      #  origin; the root (".") is absolute, so the absolute? guard skips it.
+      if ([Types::SVCB, Types::HTTPS].include?type_was)
+        parsed_rr = Dnsruby::RR.create(line)
+        if (parsed_rr.target && !parsed_rr.target.absolute?)
+          parsed_rr.target = Name.create(parsed_rr.target.to_s + "." + @origin.to_s)
+        end
+        line = parsed_rr.to_s
+      end
       if (do_prefix_hack)
         return line + "\n", type_string, @last_name
       end

@@ -48,6 +48,7 @@ TESTS = %w(
     rr-unknown
     rrset
     rrsig
+    svcb
     tkey
     update
     zone_reader

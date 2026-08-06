@@ -111,5 +111,108 @@ ZONEDATA
     assert_equal(['"escaped'], lead.strings)
     assert_equal(['abc"def'], mid.strings)
   end
+
+  # SVCB/HTTPS records carry a TargetName in the middle of the RDATA. The zone
+  # reader must resolve relative TargetNames against the origin, while leaving
+  # the root (".") and already-absolute names untouched.
+  SVCB_ZONE = <<~ZONEDATA
+    $TTL 3600
+    $ORIGIN example.com.
+    @      IN SOA  ns1.example.com. hostmaster.example.com. 1 2 3 4 5
+    @      IN HTTPS 1 . alpn=h2,h3 ipv4hint=192.0.2.1
+    alias  IN SVCB  0 svc4.example.com.
+    rel    IN SVCB  1 foo alpn=h2
+    svc    IN HTTPS 1 svc.example.net. port=8443
+  ZONEDATA
+
+  def svcb_zone_records
+    reader = Dnsruby::ZoneReader.new('example.com.')
+    records = reader.process_file(StringIO.new(SVCB_ZONE))
+    records.reject { |rr| rr.type == Types::SOA }
+  end
+
+  def test_zone_svcb_https_targets_resolved
+    https_root, svcb_alias, svcb_rel, https_svc = svcb_zone_records
+
+    # Root TargetName stays as the root.
+    assert_equal(Types::HTTPS, https_root.type)
+    assert_equal('.', https_root.target.to_s(true))
+    assert_equal('h2,h3', https_root.params_to_hash['alpn'])
+
+    # Absolute AliasMode TargetName is untouched.
+    assert_equal(0, svcb_alias.priority)
+    assert_equal('svc4.example.com.', svcb_alias.target.to_s(true))
+
+    # Relative TargetName gains the origin.
+    assert_equal('foo.example.com.', svcb_rel.target.to_s(true))
+    assert_equal('h2', svcb_rel.params_to_hash['alpn'])
+
+    # Absolute TargetName in another zone is untouched.
+    assert_equal('svc.example.net.', https_svc.target.to_s(true))
+    assert_equal('8443', https_svc.params_to_hash['port'])
+  end
+
+  # A HTTPS record spread across several lines with parentheses is valid zone
+  # format and must be parsed as a single record.
+  MULTILINE_ZONE = <<~ZONEDATA
+    $TTL 3600
+    $ORIGIN example.com.
+    @   IN SOA  ns1.example.com. hostmaster.example.com. 1 2 3 4 5
+    @   IN HTTPS ( 1 .  alpn=h2,h3
+                   port=443
+                   ipv4hint=192.0.2.1 )
+  ZONEDATA
+
+  def test_zone_multiline_https
+    reader = Dnsruby::ZoneReader.new('example.com.')
+    records = reader.process_file(StringIO.new(MULTILINE_ZONE))
+    https = records.find { |rr| rr.type == Types::HTTPS }
+    refute_nil(https)
+    assert_equal(1, https.priority)
+    assert_equal('.', https.target.to_s(true))
+    assert_equal('h2,h3', https.params_to_hash['alpn'])
+    assert_equal('443', https.params_to_hash['port'])
+    assert_equal('192.0.2.1', https.params_to_hash['ipv4hint'])
+  end
+
+  # RFC 9460 Appendix A: a SvcParamValue may be quoted, and the quotes open
+  # mid-token, unlike the quoted RDATA of a TXT record. The ech value also puts
+  # base64 padding inside the quotes, and an unquoted param after them.
+  QUOTED_SVCB_ZONE = <<~ZONEDATA
+    $TTL 3600
+    alpn   IN HTTPS 1 . alpn="h2,h3"
+    ech    IN HTTPS 1 . ech="AEX+DQBBzQAgACD/AA==" port=8443
+  ZONEDATA
+
+  def test_zone_quoted_svcparam_values
+    reader = Dnsruby::ZoneReader.new('example.com.')
+    alpn, ech = reader.process_file(StringIO.new(QUOTED_SVCB_ZONE))
+
+    assert_equal('h2,h3', alpn.params_to_hash['alpn'])
+
+    assert_equal('AEX+DQBBzQAgACD/AA==', ech.params_to_hash['ech'])
+    assert_equal('8443', ech.params_to_hash['port'])
+  end
+
+  # A quoted SvcParamValue inside the parentheses that group a record across
+  # lines. The quote opens mid-token, so the closing parenthesis travels with
+  # the quoted tail rather than with the rest of the line. An ech value is what
+  # gets wrapped in practice, being long enough to want a second line.
+  PAREN_QUOTED_SVCB_ZONE = <<~ZONEDATA
+    $TTL 3600
+    one    IN HTTPS ( 1 . alpn="h2,h3" )
+    two    IN HTTPS ( 1 .  ech="AEX+DQBBzQAgACD/AA=="
+                      port=8443 )
+  ZONEDATA
+
+  def test_zone_parenthesised_quoted_svcparam_values
+    reader = Dnsruby::ZoneReader.new('example.com.')
+    one_line, wrapped = reader.process_file(StringIO.new(PAREN_QUOTED_SVCB_ZONE))
+
+    assert_equal('h2,h3', one_line.params_to_hash['alpn'])
+
+    assert_equal('AEX+DQBBzQAgACD/AA==', wrapped.params_to_hash['ech'])
+    assert_equal('8443', wrapped.params_to_hash['port'])
+  end
 end
 
