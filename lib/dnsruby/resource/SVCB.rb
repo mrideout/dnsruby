@@ -150,7 +150,14 @@ module Dnsruby
             raise DecodeError.new('SvcParams must be in strictly increasing key order without duplicates')
           end
           last_key = key
-          value = msg.get_bytes(length)
+          # get_bytes returns what is there, so a length past the end would end
+          # this loop short. Message.decode catches that at the RDLENGTH
+          # boundary; RR.new_from_data, decoding RDATA alone, has none.
+          value = msg.get_bytes(length).to_s # nil past the end of the buffer
+          if value.bytesize != length
+            raise DecodeError.new("SvcParamValue for #{num_to_key(key)} is truncated: " \
+                                  "#{length} octets declared, #{value.bytesize} present")
+          end
           validate_param_value(key, value)
           params[key] = value
         end

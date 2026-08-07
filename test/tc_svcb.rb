@@ -613,6 +613,21 @@ class TestSVCB < Minitest::Test
     end
   end
 
+  # Message.decode rejects a SvcParamValue length past the end of the RDATA at
+  # the RDLENGTH boundary; the RFC 3597 "\# len hex" form decodes RDATA alone.
+  def test_decode_rejects_truncated_svcparamvalue
+    {
+      'dohpath, 3 of 10 octets' => '000100' + '0007' + '000a' + '616263',
+      'ech, 3 of 4 octets'      => '000100' + '0005' + '0004' + 'abcdef',
+      'alpn, no value at all'   => '000100' + '0001' + '0003',
+    }.each do |label, hex|
+      assert_raises(Dnsruby::DecodeError, label) { decode(hex) }
+      assert_raises(Dnsruby::DecodeError, label) do
+        RR.create("example.com. 3600 IN SVCB \\# #{hex.length / 2} #{hex}")
+      end
+    end
+  end
+
   # params is public, so a value can reach the decoder without the .b every
   # constructor applies, which is why the length-prefixed decoders count
   # octets. With String#[] this decoded to ["\xC3\xA9\x02", "2"].
