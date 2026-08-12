@@ -1,5 +1,9 @@
 # Release Notes
 
+## Unreleased
+
+* Enforce the 255-octet name limit (RFC 1035 Section 2.3.4, RFC 2181 Section 11) against the wire length rather than the dotted presentation length: names of 256 and 257 wire octets were accepted and encoded into messages, and now raise ResolvError
+
 ## v1.74.0
 
 * Resolve all configured nameservers in parallel

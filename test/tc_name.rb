@@ -20,6 +20,11 @@ class TestName < Minitest::Test
 
   include Dnsruby
 
+  # Names on either side of the 255-octet wire limit: 249 octets of label text
+  # in 5 labels, plus a length octet each and the root's zero octet, is 255.
+  AT_LIMIT_NAME = "#{'a' * 63}.#{'b' * 63}.#{'c' * 63}.#{'d' * 59}.e."
+  OVER_LIMIT_NAME = "#{'a' * 63}.#{'b' * 63}.#{'c' * 63}.#{'d' * 60}.e."
+
   def test_label_length
     Name::Label.set_max_length(Name::Label::MaxLabelLength) # Other tests may have changed this
     #  Test max label length = 63
@@ -30,13 +35,29 @@ class TestName < Minitest::Test
     end
   end
 
+  def wire_length(name)
+    MessageEncoder.new { |msg| msg.put_name(name, true) }.to_s.length
+  end
+
+  # Test max name length=255. The limit is on the wire form, two octets more
+  # than the dotted presentation form without its trailing dot.
   def test_name_length
-    #  Test max name length=255
-    begin
-      Name.create("1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123.com")
-      assert(false, "Name of length > 255 allowed")
-    rescue ResolvError
-    end
+    assert_equal(255, wire_length(Name.create(AT_LIMIT_NAME)))
+
+    error = assert_raises(ResolvError) { Name.create(OVER_LIMIT_NAME) }
+    assert_match(/Name length is 256,/, error.message)
+  end
+
+  # An oversized name must not reach the wire through Message either, and a
+  # name right at the limit must still survive the round trip.
+  def test_name_length_in_message
+    assert_raises(ResolvError) { Message.new(OVER_LIMIT_NAME, "A") }
+
+    message = Message.new(AT_LIMIT_NAME, "A")
+    message.add_answer(RR.create("#{AT_LIMIT_NAME} 3600 IN NS #{AT_LIMIT_NAME}"))
+    decoded = Message.decode(message.encode)
+    assert_equal(AT_LIMIT_NAME, decoded.question[0].qname.to_s + ".")
+    assert_equal(AT_LIMIT_NAME, decoded.answer[0].domainname.to_s + ".")
   end
 
   def test_absolute
