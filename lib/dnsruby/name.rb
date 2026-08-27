@@ -93,7 +93,10 @@ module Dnsruby
     # This method should only be called internally.
     # Use Name::create to create a new Name
     def initialize(labels, absolute=true) #:nodoc: all
-      total_length=labels.length-1
+      # The 255-octet limit (RFC 1035 section 2.3.4, RFC 2181 section 11) is
+      # on the wire form, so count each label's length octet, plus the root's
+      # zero octet.
+      total_length=labels.length+1
       labels.each do |l|
         if (!l.kind_of?Label)
           raise ArgumentError.new("Name::new called with non-labels. Use Name::create instead?")
