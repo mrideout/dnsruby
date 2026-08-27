@@ -20,8 +20,8 @@ The following is a (non-exhaustive) list of features :
 
 - Implemented RRs :  A, AAAA, AFSDB, ANY, CAA, CERT, CNAME, DNAME,
      GPOS, HINFO, ISDN, LOC, MB, MG, MINFO, MR, MX, NAPTR, NS, NSAP,
-     NXT, OPT, PTR, PX, RP, RT, SOA, SPF, SRV, TKEY, TSIG, TXT,
-     WKS, X25, DNSKEY, RRSIG, NSEC, NSEC3, NSEC3PARAM, DS, DLV
+     NXT, OPT, PTR, PX, RP, RT, SOA, SPF, SRV, SVCB, HTTPS, TKEY,
+     TSIG, TXT, WKS, X25, DNSKEY, RRSIG, NSEC, NSEC3, NSEC3PARAM, DS, DLV
 
 - Generic RR types supported (RFC3597)
 
