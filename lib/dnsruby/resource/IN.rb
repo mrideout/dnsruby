@@ -59,6 +59,8 @@ module Dnsruby
       Types::GPOS => GPOS,
       Types::NXT => NXT,
       Types::CAA => CAA,
+      Types::SVCB => SVCB,
+      Types::HTTPS => HTTPS,
     } #:nodoc: all
 
     #  module IN contains ARPA Internet specific RRs

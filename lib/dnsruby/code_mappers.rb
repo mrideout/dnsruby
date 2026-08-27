@@ -165,6 +165,8 @@ module Dnsruby
     HIP       = 55      # RFC 5205
     CDS       = 59      # RFC 7344
     CDNSKEY   = 60      # RFC 7344
+    SVCB      = 64      # RFC 9460
+    HTTPS     = 65      # RFC 9460
     SPF       = 99      # RFC 4408
     UINFO     = 100     # non-standard
     UID       = 101     # non-standard

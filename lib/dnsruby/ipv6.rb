@@ -108,12 +108,40 @@ module Dnsruby
     #  The raw IPv6 address as a String
     attr_reader :address
 
+    #  The RFC 5952 canonical text representation of the address
     def to_s
-      address = sprintf("%X:%X:%X:%X:%X:%X:%X:%X", *@address.unpack("nnnnnnnn"))
-      unless address.sub!(/(^|:)0(:0)+(:|$)/, '::')
-        address.sub!(/(^|:)0(:|$)/, '::')
+      fields = @address.unpack("n8")
+
+      #  RFC 5952 section 5: an address carrying an embedded IPv4 address
+      #  under the well-known ::ffff:0:0/96 prefix is written in the mixed
+      #  hexadecimal / dotted decimal notation.
+      if fields[0, 5].all?(&:zero?) && fields[5] == 0xffff
+        return "::ffff:" + fields[6, 2].pack("n2").unpack("C4").join(".")
       end
-      return address
+
+      #  RFC 5952 section 4.2.3: "::" replaces the longest run of consecutive
+      #  all-zero fields, and the first such run when several are equally long.
+      #  Section 4.2.2: a run of a single all-zero field is never replaced.
+      run_start = nil
+      best_start, best_length = nil, 1
+      fields.each_with_index do |field, i|
+        if field == 0
+          run_start ||= i
+          length = i - run_start + 1
+          best_start, best_length = run_start, length if length > best_length
+        else
+          run_start = nil
+        end
+      end
+
+      #  RFC 5952 sections 4.1 and 4.3: no leading zeros, and lowercase hex
+      strings = fields.map {|field| field.to_s(16)}
+      if best_start
+        strings[best_start, best_length] = ['']
+        strings.unshift('') if best_start == 0
+        strings.push('') if best_start + best_length == fields.length
+      end
+      return strings.join(':')
     end
 
     def inspect #:nodoc:

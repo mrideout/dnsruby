@@ -26,6 +26,7 @@ TESTS = %w(
     hash
     header
     ipseckey
+    ipv6
     message
     misc
     name
@@ -47,6 +48,7 @@ TESTS = %w(
     rr-unknown
     rrset
     rrsig
+    svcb
     tkey
     update
     zone_reader
